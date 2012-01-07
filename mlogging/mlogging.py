@@ -16,6 +16,9 @@ def config(name='default', outputs=['screen'], levels=['all'], local_root=_defau
         all, debug, info, warning, error, critical
     '''
     logger = logging.getLogger(name)
+    # reset log handlers
+    for h in logger.handlers:
+        logger.removeHandler(h)
     # default record all level info
     logger.setLevel(logging.DEBUG)
     for op in outputs:
