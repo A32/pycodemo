@@ -1,11 +1,25 @@
 '''mlogging module'''
 import os
 import logging
+try:
+    from scribe_logger.logger import ScribeLogHandler
+    enable_scribe = True
+except ImportError:
+    enable_scribe = False
 
-_default_formatter = logging.Formatter('%(asctime)s %(module)s %(name)s %(levelname)s %(message)s')
-_default_local_root = '/tmp'
+# mlogging config
+formatter = _default_formatter = logging.Formatter('%(asctime)s %(module)s %(name)s %(levelname)s %(message)s')
+local_root = _default_local_root = '/tmp'
+scribe_host = _default_scribe_host = '127.0.0.1'
+scribe_port = _default_scribe_port = 1456
 
-def config(name='default', outputs=['screen'], levels=['all'], local_root=_default_local_root):
+def option(name,value):
+    options = ['formatter','local_root', 'scribe_host', 'scribe_port']
+    if not name in options:
+        return
+    globals()[name] = value    
+            
+def config(name='default', outputs=['screen'], levels=['all']):
     '''Config a logger
 
     output: a list of output types, they can be
@@ -15,6 +29,7 @@ def config(name='default', outputs=['screen'], levels=['all'], local_root=_defau
     filter: a list of level to be shown they can be
         all, debug, info, warning, error, critical
     '''
+    global local_root
     logger = logging.getLogger(name)
     # reset log handlers
     for h in logger.handlers:
@@ -23,9 +38,11 @@ def config(name='default', outputs=['screen'], levels=['all'], local_root=_defau
     logger.setLevel(logging.DEBUG)
     for op in outputs:
         if op == 'screen':
-            logger.addHandler(_screen_handler)
+            logger.addHandler(get_screen_handler())
         elif op == 'local':
-            logger.addHandler(get_local_handler(name, local_root))
+            logger.addHandler(get_local_handler(name))
+        elif op == 'remote' and enable_scribe:
+            logger.addHandler(get_remote_handler(name))
     levelmap = {'debug':logging.DEBUG,
                 'info':logging.INFO,
                 'warning':logging.WARNING,
@@ -53,19 +70,27 @@ class MultipleFilter(logging.Filter):
 
 def get_screen_handler():
     '''Return a screen appender of loggging'''
+    global formatter
     handler = logging.StreamHandler()
-    handler.setFormatter(_default_formatter)
+    handler.setFormatter(formatter)
     return handler
-_screen_handler = get_screen_handler()
 
-def get_local_handler(name,local_root):
+def get_local_handler(name):
     '''Return handler write to local file'''
-    log_file =  os.path.join(local_root, name.replace('.','/'))
+    global formatter, local_root
+    log_file = os.path.join(local_root, name.replace('.','/'))
     log_dir = os.path.dirname(log_file)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     handler = logging.FileHandler( log_file, 'a')
-    handler.setFormatter(_default_formatter)
+    handler.setFormatter(formatter)
+    return handler
+
+def get_remote_handler(name):
+    '''Return handler write to remote file'''
+    global formatter, scribe_host, scribe_port
+    handler = ScribeLogHandler(category=name, host=scribe_host, port=scribe_port)
+    handler.setFormatter(formatter)
     return handler
 
 def get_null_handler():

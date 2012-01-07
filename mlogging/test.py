@@ -59,25 +59,36 @@ class TestLocalOutput(unittest.TestCase):
 
     def setUp(self):
         self.local_root = gen_temp_dir()
+        mlogging.option('local_root', self.local_root)
 
     def tearDown(self):
         shutil.rmtree(self.local_root)
 
     def test_local_basic(self):
         # logging to local file test
-        name = "local.basic"
-        log = mlogging.config(name=name, outputs=['local'], local_root=self.local_root)
+        name = 'local.basic'
+        log = mlogging.config(name=name, outputs=['local'])
         log.warning('warning')
         log_file = os.path.join(self.local_root, name.replace('.','/'))
         tail = subprocess.Popen(["tail",log_file], stdout=subprocess.PIPE)
         msg = get_linestring_split(tail.stdout.read(), -1)
         self.assertEqual(msg[3:6], [name,'WARNING','warning'])
-       
+ 
+class TestRemoteOutput(unittest.TestCase):
+    '''Test remote output'''
+   
+    def test_remote_basic(self):
+        # logging to remote scribe test
+        name = 'remote.basic'
+        log = mlogging.config(name=name, outputs=['remote'])
+        log.warning('warning')
+
 class TestCombineOutput(unittest.TestCase):
     ''' Test log to multiple ends'''
 
     def setUp(self):
         self.local_root = gen_temp_dir()
+        mlogging.option('local_root', self.local_root)
 
     def tearDown(self):
         shutil.rmtree(self.local_root)
@@ -85,7 +96,7 @@ class TestCombineOutput(unittest.TestCase):
     def test_combine_basic(self):
         # test combined logging
         name = 'combine.basic'
-        log = mlogging.config(name=name, outputs=['screen','local'], local_root=self.local_root)       
+        log = mlogging.config(name=name, outputs=['screen','local'])       
         # redirect stream to string io to capture
         log.handlers[0].stream = StringIO()
         log.warning('warning')
@@ -99,7 +110,7 @@ class TestCombineOutput(unittest.TestCase):
 
 if __name__ == '__main__':
 #    unittest.main()
-    tests = [TestScreenOutput,TestLocalOutput,TestCombineOutput]
+    tests = [TestScreenOutput,TestLocalOutput,TestRemoteOutput,TestCombineOutput]
     suites = []
     for test in tests:
         suites.append(unittest.TestLoader().loadTestsFromTestCase(test))
