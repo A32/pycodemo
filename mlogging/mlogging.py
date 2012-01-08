@@ -8,13 +8,13 @@ except ImportError:
     enable_scribe = False
 
 # mlogging config
-formatter = _default_formatter = logging.Formatter('%(asctime)s %(module)s %(name)s %(levelname)s %(message)s')
-local_root = _default_local_root = '/tmp'
-scribe_host = _default_scribe_host = '127.0.0.1'
-scribe_port = _default_scribe_port = 1456
+format_string =  '%(asctime)s %(module)s %(name)s %(levelname)s %(message)s'
+local_root =  '/tmp'
+scribe_host = '127.0.0.1'
+scribe_port = 1456
 
 def option(name,value):
-    options = ['formatter','local_root', 'scribe_host', 'scribe_port']
+    options = ['format_string','local_root', 'scribe_host', 'scribe_port']
     if not name in options:
         return
     globals()[name] = value    
@@ -70,9 +70,9 @@ class MultipleFilter(logging.Filter):
 
 def get_screen_handler():
     '''Return a screen appender of loggging'''
-    global formatter
+    global format_string
     handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
+    handler.setFormatter(logging.Formatter(format_string))
     return handler
 
 def get_local_handler(name):
@@ -83,14 +83,14 @@ def get_local_handler(name):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
     handler = logging.FileHandler( log_file, 'a')
-    handler.setFormatter(formatter)
+    handler.setFormatter(logging.Formatter(format_string))
     return handler
 
 def get_remote_handler(name):
     '''Return handler write to remote file'''
     global formatter, scribe_host, scribe_port
     handler = ScribeLogHandler(category=name, host=scribe_host, port=scribe_port)
-    handler.setFormatter(formatter)
+    handler.setFormatter(logging.Formatter(format_string))
     return handler
 
 def get_null_handler():

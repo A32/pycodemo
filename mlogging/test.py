@@ -83,6 +83,31 @@ class TestRemoteOutput(unittest.TestCase):
         log = mlogging.config(name=name, outputs=['remote'])
         log.warning('warning')
 
+class TestOption(unittest.TestCase):
+    ''' Test option function'''
+    def setUp(self):
+        # restore options used before test
+        self.options=[mlogging.format_string,
+                mlogging.local_root,
+                mlogging.scribe_host,
+                mlogging.scribe_port]
+
+    def tearDown(self):
+        # recover options used before test
+        mlogging.format_string, mlogging.local_root,\
+        mlogging.scribe_host, mlogging.scribe_port = self.options
+   
+    def test_formatter(self):
+        mlogging.option('format_string','%(message)s')
+        name = 'option.formatter'
+        log = mlogging.config(name=name, outputs=['screen'])
+        # redirect stream to string io to capture
+        log.handlers[0].stream = StringIO()
+        log.warning('warning')
+        log_output = log.handlers[0].stream.getvalue()
+        msg_warning = get_linestring_split(log_output, 0)
+        self.assertEqual(msg_warning[0:1], ['warning'])
+
 class TestCombineOutput(unittest.TestCase):
     ''' Test log to multiple ends'''
 
@@ -110,7 +135,8 @@ class TestCombineOutput(unittest.TestCase):
 
 if __name__ == '__main__':
 #    unittest.main()
-    tests = [TestScreenOutput,TestLocalOutput,TestRemoteOutput,TestCombineOutput]
+    tests = [TestScreenOutput,TestLocalOutput,TestRemoteOutput,
+            TestOption,TestCombineOutput]
     suites = []
     for test in tests:
         suites.append(unittest.TestLoader().loadTestsFromTestCase(test))
