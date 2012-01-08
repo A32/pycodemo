@@ -71,6 +71,8 @@ def config(name='default', outputs=['screen'], levels=['all']):
             logger.addHandler(get_local_handler(name, default_local_root))
         elif op == 'remote' and enable_scribe:
             logger.addHandler(get_remote_handler(name, default_scribe_host, default_scribe_port))
+        elif op == 'remote_by_host' and enable_scribe:
+            logger.addHandler(get_remote_handler(name, default_scribe_host, default_scribe_port, byhost=True))
     levelmap = {'debug':logging.DEBUG,
                 'info':logging.INFO,
                 'warning':logging.WARNING,
@@ -114,10 +116,18 @@ def get_local_handler(name, local_root=default_local_root):
     handler.setFormatter(logging.Formatter(default_format_string))
     return handler
 
-def get_remote_handler(name, scribe_host=default_scribe_host, scribe_port=default_scribe_port):
+def get_remote_handler(name, scribe_host=default_scribe_host, scribe_port=default_scribe_port, byhost=False):
     '''Return handler write to remote file'''
     global default_format_string
-    handler = ScribeLogHandler(category=name, host=scribe_host, port=scribe_port)
+    if byhost:
+        host_name = socket.gethostname()
+        dot_pos = hostname.find('.')
+        if dot_pos > 0:
+            host_name = host_name[:dot_pos]
+        category = '.'.join([name,host_name])
+    else:
+        category = name
+    handler = ScribeLogHandler(category=category, host=scribe_host, port=scribe_port)
     handler.setFormatter(logging.Formatter(default_format_string))
     return handler
 
