@@ -8,7 +8,7 @@ import shutil
 # target module to test
 import mlogging
 
-#util
+#utils
 def gen_random_string(length=10):
     return ''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for x in range(10))
 def gen_temp_dir(root='/tmp'):
@@ -58,11 +58,13 @@ class TestLocalOutput(unittest.TestCase):
     ''' Test log to local file'''
 
     def setUp(self):
+        self.local_root_old = mlogging.default_local_root
         self.local_root = gen_temp_dir()
-        mlogging.option('local_root', self.local_root)
+        mlogging.set_default(local_root=self.local_root)
 
     def tearDown(self):
         shutil.rmtree(self.local_root)
+        mlogging.set_default(local_root=self.local_root_old)
 
     def test_local_basic(self):
         # logging to local file test
@@ -87,19 +89,19 @@ class TestOption(unittest.TestCase):
     ''' Test option function'''
     def setUp(self):
         # restore options used before test
-        self.options=[mlogging.format_string,
-                mlogging.local_root,
-                mlogging.scribe_host,
-                mlogging.scribe_port]
+        self.options=[mlogging.default_format_string,
+                mlogging.default_local_root,
+                mlogging.default_scribe_host,
+                mlogging.default_scribe_port]
 
     def tearDown(self):
         # recover options used before test
-        mlogging.format_string, mlogging.local_root,\
-        mlogging.scribe_host, mlogging.scribe_port = self.options
+        mlogging.default_format_string, mlogging.default_local_root,\
+        mlogging.default_scribe_host, mlogging.default_scribe_port = self.options
    
-    def test_formatter(self):
-        mlogging.option('format_string','%(message)s')
-        name = 'option.formatter'
+    def test_set_default(self):
+        mlogging.set_default(format_string='%(message)s')
+        name = 'option.set_default'
         log = mlogging.config(name=name, outputs=['screen'])
         # redirect stream to string io to capture
         log.handlers[0].stream = StringIO()
@@ -108,15 +110,38 @@ class TestOption(unittest.TestCase):
         msg_warning = get_linestring_split(log_output, 0)
         self.assertEqual(msg_warning[0:1], ['warning'])
 
+    def test_option(self):
+        name = 'option.option1'
+        log = mlogging.config(name=name, outputs=['screen'])
+        mlogging.option(name, format_string='%(message)s')
+        # redirect stream to string io to capture
+        log.handlers[0].stream = StringIO()
+        log.warning('warning')
+        log_output = log.handlers[0].stream.getvalue()
+        msg_warning = get_linestring_split(log_output, 0)
+        self.assertEqual(msg_warning[0:1], ['warning'])
+        name = 'option.option2'
+        log = mlogging.config(name=name, outputs=['screen'])
+        mlogging.option(name, format_string='%(levelname)s %(message)s')
+        # redirect stream to string io to capture
+        log.handlers[0].stream = StringIO()
+        log.warning('warning')
+        log_output = log.handlers[0].stream.getvalue()
+        msg_warning = get_linestring_split(log_output, 0)
+        self.assertEqual(msg_warning[0:2], ['WARNING','warning'])
+
+
 class TestCombineOutput(unittest.TestCase):
     ''' Test log to multiple ends'''
 
     def setUp(self):
+        self.local_root_old = mlogging.default_local_root
         self.local_root = gen_temp_dir()
-        mlogging.option('local_root', self.local_root)
+        mlogging.set_default(local_root=self.local_root)
 
     def tearDown(self):
         shutil.rmtree(self.local_root)
+        mlogging.set_default(local_root=self.local_root_old)
 
     def test_combine_basic(self):
         # test combined logging
