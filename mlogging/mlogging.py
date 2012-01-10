@@ -1,4 +1,15 @@
-'''mlogging module'''
+'''mlogging logging module
+
+mlogging supports a simple operation on python logging module. It supports write
+log to screen, local file and remote scribe server.
+
+Here is an hello world example for mlogging::
+
+    import mlogging
+    log = mlogging.config('mylog',['screen'])
+    log.info('hello world')
+
+'''
 import os
 import logging
 try:
@@ -14,7 +25,22 @@ default_scribe_host = '127.0.0.1'
 default_scribe_port = 1456
 
 def set_default(**kwargs):
-    '''set default value for mlogging'''
+    '''Set default value for mlogging configure
+
+    Default value used by config function:
+
+    format_string(logging formatter string), local_root(local path for writing log file)
+    scribe_host(scribe server ip address) and  scribe_port(scribe server port)
+
+    For example::
+        
+        import mlogging
+        mlogging.set_default(format_string='%(message)s')
+        log = mlogging.config('messageonly', ['screen'])
+        log.info('some info')
+        # screen shows: some info
+
+    '''
     options = ['format_string','local_root', 'scribe_host', 'scribe_port']
     for k,v in kwargs.items():
         if not k in options:
@@ -22,40 +48,69 @@ def set_default(**kwargs):
         globals()['default_' + k] = v
 
 def option(name, **kwargs):
-    '''change option for logger name'''
-    options = ['format_string','local_root', 'scribe_host', 'scribe_port']
-    scribe_done = False
-    for k,v in kwargs.items():
-        if not k in options:
-            continue
-        log = logging.getLogger(name)
-        if k == 'format_string':
-            for handler in log.handlers:
-                handler.setFormatter(logging.Formatter(v))
-        elif k == 'local_root':
-            for handler in log.handlers:
-                if isinstance(handler, logging.FileHandler):
-                    log.removeHandler(handler)
-            log.addHandler(get_local_handler(name, v))
-        elif k == 'scribe_host' or k == 'scribe_port':
-            scribe_host = kwargs.get('scribe_host',None)
-            scirbe_port = kwargs.get('scribe_port',None)
-            if not scribe_done and scribe_host and scribe_port:
-                for handler in log.handlers:
-                    if isinstance(handler, logging.ScribeHandler):
-                        log.removeHandler(handler)
-                log.addHandler(get_remote_handler(name, scribe_host, scribe_port))
-                scribe_done = True
+    '''Change option for specific logger.
+
+    support option includes format_string(logging formatter string), 
+    local_root(local path for writing log file), scribe_host(scribe server ip address) and
+    scribe_port(scribe server port), scribe_category(scribe category name)
+
+    For example::
+
+        import mlogging
+        log = mlogging.config('mylog',['local'])
+        mlogging.option('mylog', local_root='/tmp/mylog')
+        log.info('some info')
+
+    '''
+    options = ['format_string','local_root', 'scribe_host', 'scribe_port', 'scribe_category']
+    logger = logging.getLogger(name)
+    if 'local_root' in kwargs.keys():
+        exist = False
+        for handler in logger.handlers:
+            if isinstance(handler, logging.FileHandler):
+                logger.removeHandler(handler)
+                exist = True
+        if exist:
+            logger.addHandler(get_local_handler(name, kwargs.get('local_root')))
+    if 'scribe_host' in kwargs.keys() and 'scirbe_port' in kwargs.keys():
+        exist = False
+        host = kwargs.get('scribe_host')
+        port = kwargs.get('scribe_port')
+        for handler in logger.handlers:
+            if isinstance(handler, logging.ScribeHandler):
+                logger.removeHandler(handler)
+                exist = True
+        if exist:
+            logger.addHandler(get_remote_handler(name, host, port))
+    if 'scribe_category' in kwargs.keys():
+        for handler in logger.handlers:
+            if isinstance(handler, logging.ScribeHandler):
+                handler.category = kwargs.get('scribe_category')
+    if 'format_string' in kwargs.keys():
+        for handler in logger.handlers:
+            handler.setFormatter(logging.Formatter(kwargs.get('format_string')))
 
 def config(name='default', outputs=['screen'], levels=['all']):
-    '''Config a logger
+    '''Config a logger.
 
     output: a list of output types, they can be
         * screen: output to screen
         * local: local file in log_dir_local
         * remote: remote path using scribe
-    filter: a list of level to be shown they can be
-        all, debug, info, warning, error, critical
+        * remote_by_host: remote category will add ip information
+
+    levels: a list of level to be shown they can be all, debug, info, warning, error, critical
+    levels is DIFFERENT from logging level set. It records levels in this list.
+
+    For example::
+
+        import mlogging
+        log = mlogging.config('fileinfolog',['local'],['info'])
+        log.info('info is recorded')
+        log.warning('warning is not recorded')
+
+    You can reconfig a logger easily by call config again.
+
     '''
     global default_local_root, default_scribe_host, default_scribe_port
     logger = logging.getLogger(name)
@@ -69,9 +124,15 @@ def config(name='default', outputs=['screen'], levels=['all']):
             logger.addHandler(get_screen_handler())
         elif op == 'local':
             logger.addHandler(get_local_handler(name, default_local_root))
-        elif op == 'remote' and enable_scribe:
+        elif op == 'remote':
+            if not enable_scribe:
+                print 'mlogging: module scribe_logger not found, can not output to remote'
+                continue
             logger.addHandler(get_remote_handler(name, default_scribe_host, default_scribe_port))
-        elif op == 'remote_by_host' and enable_scribe:
+        elif op == 'remote_by_host':
+            if not enable_scribe:
+                print 'mlogging: module scribe_logger not found, can not output to remote'
+                continue
             logger.addHandler(get_remote_handler(name, default_scribe_host, default_scribe_port, byhost=True))
     levelmap = {'debug':logging.DEBUG,
                 'info':logging.INFO,
@@ -137,7 +198,10 @@ def get_null_handler():
     return handler
 
 def reset(name):
-    '''Reset log to forbid all handler output and no handler warning'''
+    '''Reset log to forbid all handler output.
+
+    Forbid all output for some logger. So everything produced by this name logger is dropped.
+    '''
     log = logging.getLogger(name)
     for h in log.handlers:
         log.removeHandler(h)
